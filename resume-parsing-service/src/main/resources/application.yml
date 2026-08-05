@@ -1,0 +1,10 @@
+server:
+  port: ${RESUME_PARSING_SERVICE_PORT:8084}
+
+spring:
+  application:
+    name: resume-parsing-service
+
+http-client:
+  connect-timeout-ms: ${HTTP_CLIENT_CONNECT_TIMEOUT_MS:2000}
+  read-timeout-ms: ${HTTP_CLIENT_READ_TIMEOUT_MS:10000}

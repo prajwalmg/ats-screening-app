@@ -1,9 +1,21 @@
 import axios from 'axios'
 
-export const jobServiceClient = axios.create({
-  baseURL: import.meta.env.VITE_JOB_SERVICE_URL || 'http://localhost:8081',
+export const ADMIN_TOKEN_STORAGE_KEY = 'ats_admin_token'
+
+export const apiClient = axios.create({
+  baseURL: import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:8080',
 })
 
-export const applicationServiceClient = axios.create({
-  baseURL: import.meta.env.VITE_APPLICATION_SERVICE_URL || 'http://localhost:8082',
+apiClient.interceptors.request.use((config) => {
+  if (config.url?.startsWith('/api/admin')) {
+    const token = localStorage.getItem(ADMIN_TOKEN_STORAGE_KEY)
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+  }
+  return config
 })
+
+export function extractErrorMessage(error, fallback) {
+  return error?.response?.data?.message || error?.message || fallback
+}

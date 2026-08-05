@@ -9,6 +9,7 @@ import com.ats.jobservice.dto.CreateJobRequest;
 import com.ats.jobservice.entity.Job;
 import com.ats.jobservice.service.*;
 
+import jakarta.validation.Valid;
 import lombok.*;
 
 @RestController
@@ -16,9 +17,9 @@ import lombok.*;
 @RequiredArgsConstructor
 public class JobController {
     private final JobService jobService;
-    
+
     @PostMapping
-    public ResponseEntity<Job> createJob(@Vaild @RequestBody CreateJobRequest request) {
+    public ResponseEntity<Job> createJob(@Valid @RequestBody CreateJobRequest request) {
         Job created = jobService.createJob(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }

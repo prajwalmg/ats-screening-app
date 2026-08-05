@@ -1,0 +1,17 @@
+server:
+  port: ${ATS_SCREENING_SERVICE_PORT:8085}
+
+spring:
+  application:
+    name: ats-screening-service
+
+services:
+  job-service:
+    base-url: ${JOB_SERVICE_URL:http://localhost:8081}
+
+http-client:
+  connect-timeout-ms: ${HTTP_CLIENT_CONNECT_TIMEOUT_MS:2000}
+  read-timeout-ms: ${HTTP_CLIENT_READ_TIMEOUT_MS:3000}
+
+screening:
+  advance-threshold-percent: ${SCREENING_ADVANCE_THRESHOLD:70}

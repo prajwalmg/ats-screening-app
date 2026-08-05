@@ -17,5 +17,112 @@ services:
       timeout: 5s
       retries: 5
 
+  minio:
+    image: minio/minio:latest
+    container_name: ats-minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "${MINIO_API_PORT:-9002}:9000"
+      - "${MINIO_CONSOLE_PORT:-9004}:9001"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+
+  job-service:
+    build: ./job-service
+    container_name: ats-job-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      JOB_SERVICE_DB_HOST: postgres
+      JOB_SERVICE_DB_PORT: 5432
+      JOB_SERVICE_DB_NAME: job_service
+      JOB_SERVICE_DB_USERNAME: ${POSTGRES_USER:-postgres}
+      JOB_SERVICE_DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "8081:8081"
+
+  application-service:
+    build: ./application-service
+    container_name: ats-application-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      job-service:
+        condition: service_started
+    environment:
+      APPLICATION_SERVICE_DB_HOST: postgres
+      APPLICATION_SERVICE_DB_PORT: 5432
+      APPLICATION_SERVICE_DB_NAME: application_service
+      APPLICATION_SERVICE_DB_USERNAME: ${POSTGRES_USER:-postgres}
+      APPLICATION_SERVICE_DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      JOB_SERVICE_URL: http://job-service:8081
+      RESUME_PARSING_SERVICE_URL: http://resume-parsing-service:8084
+      ATS_SCREENING_SERVICE_URL: http://ats-screening-service:8085
+    ports:
+      - "8082:8082"
+
+  resume-storage-service:
+    build: ./resume-storage-service
+    container_name: ats-resume-storage-service
+    depends_on:
+      - minio
+    environment:
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_BUCKET: resumes
+    ports:
+      - "8083:8083"
+
+  resume-parsing-service:
+    build: ./resume-parsing-service
+    container_name: ats-resume-parsing-service
+    ports:
+      - "8084:8084"
+
+  ats-screening-service:
+    build: ./ats-screening-service
+    container_name: ats-screening-service
+    depends_on:
+      - job-service
+    environment:
+      JOB_SERVICE_URL: http://job-service:8081
+    ports:
+      - "8085:8085"
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: ats-api-gateway
+    depends_on:
+      - job-service
+      - application-service
+      - resume-storage-service
+    environment:
+      JOB_SERVICE_URL: http://job-service:8081
+      APPLICATION_SERVICE_URL: http://application-service:8082
+      RESUME_STORAGE_SERVICE_URL: http://resume-storage-service:8083
+      JWT_SECRET: ${JWT_SECRET:-this-is-a-demo-secret-key-change-in-real-deployments-0123456789}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_GATEWAY_URL: ${VITE_API_GATEWAY_URL:-http://localhost:8080}
+    container_name: ats-frontend
+    depends_on:
+      - api-gateway
+    ports:
+      - "5173:80"
+
 volumes:
   postgres_data:
+  minio_data:

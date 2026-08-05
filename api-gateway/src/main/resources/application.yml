@@ -1,0 +1,52 @@
+server:
+  port: ${API_GATEWAY_PORT:8080}
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      server:
+        webmvc:
+          routes:
+            - id: public-jobs
+              uri: ${JOB_SERVICE_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/public/jobs/**
+              filters:
+                - RewritePath=/api/public/jobs(?<segment>.*), /jobs$\{segment}
+            - id: admin-jobs
+              uri: ${JOB_SERVICE_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/admin/jobs/**
+              filters:
+                - RewritePath=/api/admin/jobs(?<segment>.*), /jobs$\{segment}
+            - id: public-applications
+              uri: ${APPLICATION_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/public/applications/**
+              filters:
+                - RewritePath=/api/public/applications(?<segment>.*), /applications$\{segment}
+            - id: admin-applications
+              uri: ${APPLICATION_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/admin/applications/**
+              filters:
+                - RewritePath=/api/admin/applications(?<segment>.*), /applications$\{segment}
+            - id: public-resumes
+              uri: ${RESUME_STORAGE_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/public/resumes/**
+              filters:
+                - RewritePath=/api/public/resumes(?<segment>.*), /resumes$\{segment}
+
+jwt:
+  secret: ${JWT_SECRET:this-is-a-demo-secret-key-change-in-real-deployments-0123456789}
+  expiration-minutes: ${JWT_EXPIRATION_MINUTES:60}
+
+admin:
+  username: ${ADMIN_USERNAME:admin}
+  password: ${ADMIN_PASSWORD:admin123}
+
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}

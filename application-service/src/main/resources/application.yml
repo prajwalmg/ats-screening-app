@@ -14,3 +14,16 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+
+services:
+  job-service:
+    base-url: ${JOB_SERVICE_URL:http://localhost:8081}
+  resume-parsing-service:
+    base-url: ${RESUME_PARSING_SERVICE_URL:http://localhost:8084}
+    read-timeout-ms: ${RESUME_PARSING_READ_TIMEOUT_MS:15000}
+  ats-screening-service:
+    base-url: ${ATS_SCREENING_SERVICE_URL:http://localhost:8085}
+
+http-client:
+  connect-timeout-ms: ${HTTP_CLIENT_CONNECT_TIMEOUT_MS:2000}
+  read-timeout-ms: ${HTTP_CLIENT_READ_TIMEOUT_MS:3000}

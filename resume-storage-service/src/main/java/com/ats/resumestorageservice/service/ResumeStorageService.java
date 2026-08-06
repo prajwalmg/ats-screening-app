@@ -27,6 +27,7 @@ public class ResumeStorageService {
             "application/pdf",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     );
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of(".pdf", ".docx");
     private static final long MAX_SIZE_BYTES = 5L * 1024 * 1024;
 
     private final MinioClient minioClient;
@@ -94,7 +95,9 @@ public class ResumeStorageService {
             throw new IllegalArgumentException("Resume file exceeds the 5MB size limit");
         }
         String contentType = file.getContentType();
-        if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType)) {
+        boolean typeOk = contentType != null && ALLOWED_CONTENT_TYPES.contains(contentType);
+        boolean extensionOk = ALLOWED_EXTENSIONS.contains(extractExtension(file.getOriginalFilename()).toLowerCase());
+        if (!typeOk && !extensionOk) {
             throw new IllegalArgumentException("Only PDF and DOCX resumes are accepted");
         }
     }

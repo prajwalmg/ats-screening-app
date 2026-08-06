@@ -34,6 +34,15 @@ public class JwtAuthFilter implements Filter {
         HttpServletRequest request = (HttpServletRequest) req;
         HttpServletResponse response = (HttpServletResponse) res;
 
+        // Browser CORS preflight requests never carry the Authorization
+        // header, so let them through to Spring's own CORS handling rather
+        // than rejecting them here — otherwise the browser blocks the real
+        // request before it's even sent.
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            chain.doFilter(req, res);
+            return;
+        }
+
         String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             respondUnauthorized(response, "Missing bearer token");

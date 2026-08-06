@@ -5,7 +5,17 @@ const ALLOWED_RESUME_TYPES = [
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]
+const ALLOWED_RESUME_EXTENSIONS = ['.pdf', '.docx']
 const MAX_RESUME_BYTES = 5 * 1024 * 1024
+
+function isAllowedResumeFile(file) {
+  if (ALLOWED_RESUME_TYPES.includes(file.type)) return true
+  // Some browser/OS combos report an empty or generic MIME type for a
+  // correctly-typed file (e.g. file.type === '' or 'application/octet-stream'),
+  // so fall back to checking the extension rather than false-reject a valid file.
+  const name = file.name.toLowerCase()
+  return ALLOWED_RESUME_EXTENSIONS.some((ext) => name.endsWith(ext))
+}
 
 const initialForm = {
   jobId: '',
@@ -47,7 +57,7 @@ function Apply() {
     }
     if (!resumeFile) {
       errors.resumeFile = 'Attach a resume (PDF or DOCX)'
-    } else if (!ALLOWED_RESUME_TYPES.includes(resumeFile.type)) {
+    } else if (!isAllowedResumeFile(resumeFile)) {
       errors.resumeFile = 'Only PDF and DOCX files are accepted'
     } else if (resumeFile.size > MAX_RESUME_BYTES) {
       errors.resumeFile = 'Resume must be 5MB or smaller'

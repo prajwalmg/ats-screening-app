@@ -18,7 +18,10 @@ public class Job {
     private Long id;
 
     private String title;
+
+    @Column(length = 8000)
     private String description;
+
     private String department;
 
     @ElementCollection(fetch = FetchType.EAGER)

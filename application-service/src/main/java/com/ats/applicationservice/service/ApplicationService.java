@@ -63,7 +63,8 @@ public class ApplicationService {
             application.setYearsOfExperience(parsed.yearsOfExperience());
 
             ScreeningResultDto result = atsScreeningServiceClient.screen(
-                    new ScreenRequest(application.getJobId(), parsed.skills(), parsed.yearsOfExperience()));
+                    new ScreenRequest(application.getJobId(), parsed.skills(), parsed.yearsOfExperience(),
+                            parsed.resumeTextExcerpt()));
 
             application.setMatchScore(result.score());
             application.setMatchedSkills(result.matchedSkills());

@@ -258,10 +258,11 @@ matching score, filterable by job and status.
   skills lined up. Above the gate, a configurable threshold (`SCREENING_ADVANCE_THRESHOLD`,
   default 70%) decides auto-advance vs. leaving it in `UNDER_REVIEW` for a
   human.
-- **Keyword dictionary, not embeddings/NLP**, for skill extraction — a fixed
-  list of ~80 common tech terms, matched with word-boundary checks so `Java`
-  doesn't false-positive inside `JavaScript`. Deliberately simple and
-  explainable; "doesn't need to be perfect" per the brief.
+- **Keyword dictionary, not embeddings/NLP**, for skill *extraction* — a
+  fixed list of ~80 common tech terms, matched with word-boundary checks so
+  `Java` doesn't false-positive inside `JavaScript`. Deliberately simple and
+  explainable; "doesn't need to be perfect" per the brief. (This is separate
+  from *scoring*, which is now pluggable — see "Scoring strategies" below.)
 - **Denormalized `jobTitle` on `Application`**, captured at submission time
   instead of joining across services for the admin table — a cross-service
   join would break server-side pagination. Trade-off: if a job's title is
@@ -277,6 +278,68 @@ matching score, filterable by job and status.
   gateway's auth filter is then a simple path-prefix check rather than a
   method-aware rule, and the frontend's own public/admin page split maps
   directly onto which prefix it calls.
+
+## Scoring strategies
+
+`ats-screening-service` computes its score via a pluggable `ScoringStrategy`
+interface, selected by `screening.strategy` (`SCREENING_STRATEGY` env var),
+defaulting to `rule-based` so nothing changes unless you opt in:
+
+```java
+public interface ScoringStrategy {
+    ScoreResult computeScore(JobDto job, List<String> candidateSkills, String resumeText);
+}
+```
+
+Two implementations, registered as named Spring beans (the bean name is the
+config value):
+
+- **`rule-based`** (default) — the original approach: score = the percentage
+  of the job's `requiredSkills` found in the resume's parsed skill list
+  (word-boundary keyword match against a fixed dictionary — see
+  `resume-parsing-service`'s `SkillDictionary`).
+- **`embedding`** — calls OpenAI's `text-embedding-3-small` to embed the
+  job's title/description/required-skills text and the resume's extracted
+  text (one batched API call, not two), then scores on cosine similarity
+  between the two vectors.
+
+Both feed into the **same hard experience gate and the same
+matched/missing-skill diagnostic** computed once in `ScreeningService` — the
+strategy only changes how the numeric score itself is derived, so a
+`REJECTED` for insufficient experience means the same thing regardless of
+which strategy is active.
+
+**Why you'd pick one over the other:**
+
+- **Rule-based is interpretable by construction.** The score *is* "3 of 4
+  required skills matched" — there's nothing to explain beyond restating the
+  computation. For an ATS, where a candidate can reasonably ask why they
+  were screened out, that's not a nice-to-have; a keyword-match rejection is
+  trivially auditable and defensible. Its ceiling is exactly as literal as
+  the word list: a resume that says "distributed event streaming" scores
+  zero against a job requiring "Kafka," even though any recruiter would
+  recognize the overlap.
+- **Embedding-based is semantically flexible but not directly explainable.**
+  Cosine similarity between two vectors captures meaning a keyword scan
+  can't — synonyms, related technologies, differently-phrased but
+  equivalent experience — but "82% similar" isn't a statement you can
+  decompose into causes the way "matched 3 of 4 skills" is. You can show
+  *what* was compared (the job text, the resume text) but not *which part*
+  of either one drove the number.
+- **This is a real, general tension in ATS/hiring-tech design**, not
+  specific to this project: rule-based systems are auditable but brittle to
+  phrasing; embedding/ML-based systems generalize better but are harder to
+  justify to a candidate or regulator asking for a reason. Running both
+  behind the same interface, on the same inputs, producing directly
+  comparable output (see the test below) is a reasonable way to introduce
+  the second without committing to it as the only source of truth — an
+  admin could plausibly want to see both scores side by side rather than
+  trust either alone.
+
+`ScoringStrategyComparisonTest` runs one fixed job/resume pair through both
+strategies (the embedding client is mocked with a known vector pair — the
+test proves the mechanism is wired correctly, not that OpenAI's embeddings
+are good, which isn't something a deterministic unit test should assert).
 
 ## Notes on dependency choices
 

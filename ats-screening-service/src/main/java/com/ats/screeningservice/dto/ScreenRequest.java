@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotNull;
 public record ScreenRequest(
         @NotNull(message = "jobId is required") Long jobId,
         List<String> skills,
-        Integer yearsOfExperience
+        Integer yearsOfExperience,
+        String resumeText
 ) {
 }

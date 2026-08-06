@@ -8,6 +8,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 public record JobDto(
         Long id,
         String title,
+        String description,
         List<String> requiredSkills,
         Integer minYearsExperience,
         String status

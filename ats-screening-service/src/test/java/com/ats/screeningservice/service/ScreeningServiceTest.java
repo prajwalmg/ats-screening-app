@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -32,17 +33,18 @@ class ScreeningServiceTest {
 
     @BeforeEach
     void setUp() {
-        screeningService = new ScreeningService(jobServiceClient);
+        screeningService = new ScreeningService(jobServiceClient, Map.of("rule-based", new RuleBasedScoringStrategy()));
         ReflectionTestUtils.setField(screeningService, "advanceThresholdPercent", 70);
+        ReflectionTestUtils.setField(screeningService, "activeStrategyName", "rule-based");
     }
 
     @Test
     void screen_fullSkillMatchAndEnoughExperience_advancesWithScore100() {
-        JobDto job = new JobDto(1L, "Backend Engineer", List.of("Java", "Spring Boot"), 2, "OPEN");
+        JobDto job = new JobDto(1L, "Backend Engineer", "Backend role", List.of("Java", "Spring Boot"), 2, "OPEN");
         when(jobServiceClient.findJob(1L)).thenReturn(Optional.of(job));
 
         ScreenResponse response = screeningService.screen(
-                new ScreenRequest(1L, List.of("Java", "Spring Boot", "Docker"), 5));
+                new ScreenRequest(1L, List.of("Java", "Spring Boot", "Docker"), 5, "resume text"));
 
         assertEquals(100, response.score());
         assertTrue(response.hardFilterPassed());
@@ -52,10 +54,10 @@ class ScreeningServiceTest {
 
     @Test
     void screen_belowMinimumExperience_isRejectedRegardlessOfSkillMatch() {
-        JobDto job = new JobDto(1L, "Staff Engineer", List.of("Java"), 10, "OPEN");
+        JobDto job = new JobDto(1L, "Staff Engineer", "Senior role", List.of("Java"), 10, "OPEN");
         when(jobServiceClient.findJob(1L)).thenReturn(Optional.of(job));
 
-        ScreenResponse response = screeningService.screen(new ScreenRequest(1L, List.of("Java"), 2));
+        ScreenResponse response = screeningService.screen(new ScreenRequest(1L, List.of("Java"), 2, "resume text"));
 
         assertFalse(response.hardFilterPassed());
         assertEquals("REJECTED", response.recommendedStatus());
@@ -63,10 +65,11 @@ class ScreeningServiceTest {
 
     @Test
     void screen_partialMatchBelowThreshold_isUnderReview() {
-        JobDto job = new JobDto(1L, "Frontend Engineer", List.of("React", "TypeScript", "GraphQL"), 1, "OPEN");
+        JobDto job = new JobDto(1L, "Frontend Engineer", "Frontend role",
+                List.of("React", "TypeScript", "GraphQL"), 1, "OPEN");
         when(jobServiceClient.findJob(1L)).thenReturn(Optional.of(job));
 
-        ScreenResponse response = screeningService.screen(new ScreenRequest(1L, List.of("React"), 3));
+        ScreenResponse response = screeningService.screen(new ScreenRequest(1L, List.of("React"), 3, "resume text"));
 
         assertTrue(response.hardFilterPassed());
         assertEquals("UNDER_REVIEW", response.recommendedStatus());
@@ -78,6 +81,6 @@ class ScreeningServiceTest {
         when(jobServiceClient.findJob(99L)).thenReturn(Optional.empty());
 
         assertThrows(InvalidJobReferenceException.class,
-                () -> screeningService.screen(new ScreenRequest(99L, List.of(), 0)));
+                () -> screeningService.screen(new ScreenRequest(99L, List.of(), 0, "")));
     }
 }

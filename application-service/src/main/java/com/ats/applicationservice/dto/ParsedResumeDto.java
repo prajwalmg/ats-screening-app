@@ -8,6 +8,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 public record ParsedResumeDto(
         List<String> skills,
         Integer yearsOfExperience,
-        int rawTextLength
+        int rawTextLength,
+        String resumeTextExcerpt
 ) {
 }

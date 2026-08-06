@@ -15,3 +15,11 @@ http-client:
 
 screening:
   advance-threshold-percent: ${SCREENING_ADVANCE_THRESHOLD:70}
+  # "rule-based" (default) or "embedding" — bean name of the active ScoringStrategy
+  strategy: ${SCREENING_STRATEGY:rule-based}
+
+openai:
+  api-key: ${OPENAI_API_KEY:}
+  embedding-model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
+  base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+  read-timeout-ms: ${OPENAI_READ_TIMEOUT_MS:8000}

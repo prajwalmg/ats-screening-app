@@ -23,6 +23,7 @@ public class ResumeParsingService {
     private static final Pattern YEARS_PATTERN = Pattern.compile(
             "(\\d{1,2})\\+?\\s*(?:years?|yrs?)\\s*(?:of\\s*)?(?:experience|exp)?",
             Pattern.CASE_INSENSITIVE);
+    private static final int MAX_RESUME_TEXT_CHARS = 4000;
 
     private final RestClient downloadClient;
     private final Tika tika = new Tika();
@@ -43,7 +44,8 @@ public class ResumeParsingService {
                 .filter(skill -> containsSkill(text, skill))
                 .toList();
         Integer years = extractYearsOfExperience(text);
-        return new ParsedResumeResponse(skills, years, text.length());
+        String excerpt = text.length() > MAX_RESUME_TEXT_CHARS ? text.substring(0, MAX_RESUME_TEXT_CHARS) : text;
+        return new ParsedResumeResponse(skills, years, text.length(), excerpt);
     }
 
     private byte[] download(String resumeUrl) {

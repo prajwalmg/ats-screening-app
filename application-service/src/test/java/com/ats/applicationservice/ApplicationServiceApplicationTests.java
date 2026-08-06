@@ -66,7 +66,7 @@ class ApplicationServiceApplicationTests {
         when(jobServiceClient.findJob(1L))
                 .thenReturn(Optional.of(new JobDto(1L, "Backend Engineer", List.of("Java"), 2, "OPEN")));
         when(resumeParsingServiceClient.parse(anyString()))
-                .thenReturn(new ParsedResumeDto(List.of("Java"), 5, 100));
+                .thenReturn(new ParsedResumeDto(List.of("Java"), 5, 100, "resume text excerpt"));
         when(atsScreeningServiceClient.screen(any()))
                 .thenReturn(new ScreeningResultDto(100, List.of("Java"), List.of(), true, "ADVANCED", "great match"));
 

@@ -1,5 +1,7 @@
 # ATS Screening Platform
 
+[![CI](https://github.com/prajwalmg/ats-screening-app/actions/workflows/ci.yml/badge.svg)](https://github.com/prajwalmg/ats-screening-app/actions/workflows/ci.yml)
+
 An Applicant Tracking System built as a set of Spring Boot microservices behind
 a gateway, with a React frontend and a rule-based automated screening
 pipeline. A candidate submits an application with a resume; the system stores
@@ -207,6 +209,79 @@ created, fill in the form, attach a resume, submit — the result panel shows
 status + score immediately. Then open **/admin/applications**, sign in with
 `admin` / `admin123`, and confirm the same application appears with a
 matching score, filterable by job and status.
+
+## Deployment
+
+**Platform: Railway.** Chosen over Render or a VPS for this project because
+its CLI supports the same kind of browser-authenticated device-code login
+already used for GitHub CLI, meaning the deploy itself — not just the choice
+— could be driven end-to-end from the terminal. A VPS running the existing
+`docker-compose.yml` almost unchanged would need the least new
+configuration, but requires manually provisioning a server and handing over
+SSH access. Render's free tier doesn't cleanly fit this architecture: no
+managed S3-compatible storage, and running 9 resources (6 services + gateway
++ frontend + Postgres) blows past free-tier service-count and memory limits
+without cutting real scope (e.g. dropping MinIO/object storage entirely).
+
+**Infrastructure so far:**
+- Managed Postgres (`job_service` and `application_service` as two separate
+  logical databases on one instance, matching local dev)
+- A managed S3-compatible bucket for resumes, used via the same `io.minio`
+  SDK client the code already had — no code fork needed for local (MinIO) vs.
+  deployed (Railway bucket), since both speak the S3 API. One real
+  incompatibility surfaced along the way: Railway's bucket doesn't implement
+  the AWS bucket-policy API `resume-storage-service` used to make the bucket
+  publicly readable. Fixed by switching to presigned URLs (7-day expiry, the
+  SigV4 maximum) instead — arguably a better default anyway (private by
+  default, time-limited access) and it works identically against any real
+  S3-compatible backend, not just Railway's.
+- `job-service`, `application-service`, `resume-storage-service`, and
+  `resume-parsing-service` deployed and verified working together over
+  Railway's private network (`<service>.railway.internal`) — confirmed with
+  a real end-to-end run: create a job, upload a resume, submit an
+  application, watch it get parsed and land as `UNDER_REVIEW` with a
+  screening-unavailable note (see below for why that note is expected right
+  now, and it's a live demonstration of the graceful-degradation design from
+  *Judgment calls*, not a bug).
+
+**Status: paused, not yet complete.** `ats-screening-service`, `api-gateway`,
+and `frontend` are not deployed — Railway's free "Trial" plan caps the
+number of provisioned resources, and the first 6 (Postgres, bucket,
+job-service, application-service, resume-storage-service,
+resume-parsing-service) already hit that cap. Finishing requires the Hobby
+plan (~$5/mo usage-based, needs a payment method — a real cost decision, not
+something to make unilaterally). The application-submission pipeline
+partially works right now (parsing runs, screening doesn't — it fails
+gracefully rather than losing the submission), but there's no public URL
+yet since the gateway and frontend, the only two services meant to be
+publicly reachable, aren't up.
+
+**To resume:** upgrade the Railway project to the Hobby plan, then repeat
+the same recipe used for the four already-deployed services for the
+remaining three:
+```bash
+railway add --service ats-screening-service --json
+railway variable set JOB_SERVICE_URL=http://job-service.railway.internal:8081 --service ats-screening-service --skip-deploys
+railway variable set OPENAI_API_KEY=<key> --service ats-screening-service --skip-deploys   # only if using the embedding strategy
+railway up ./ats-screening-service --path-as-root --service ats-screening-service -c
+
+railway add --service api-gateway --json
+# set JOB_SERVICE_URL / APPLICATION_SERVICE_URL / RESUME_STORAGE_SERVICE_URL (all .railway.internal)
+# set JWT_SECRET / ADMIN_USERNAME / ADMIN_PASSWORD to real values, not the local demo defaults
+# set CORS_ALLOWED_ORIGINS once the frontend's domain is known
+railway up ./api-gateway --path-as-root --service api-gateway -c
+railway domain --service api-gateway --port 8080   # public URL for the gateway
+
+railway add --service frontend --json
+# no runtime env vars — VITE_API_GATEWAY_URL is a *build* arg, baked in at build time
+railway up ./frontend --path-as-root --service frontend -c
+railway domain --service frontend --port 80        # public URL for the app
+```
+Then re-run the verification checklist above against the real gateway
+domain instead of `localhost:8080`, and re-verify the CORS/JWT preflight
+fix specifically (it's a real bug we hit locally — see *Judgment calls* —
+and nothing guarantees the deployed environment's CORS behavior matches
+local Docker Compose just because the code is identical).
 
 ## What this demonstrates
 
